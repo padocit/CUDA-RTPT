@@ -123,7 +123,7 @@ bool      dirtyflagPan = false;
 //-----------------------------------------------------------------------------
 HRESULT InitD3D(HWND hWnd);
 
-bool DrawScene(uint64_t & key);
+bool DrawScene();
 void Cleanup();
 void Render();
 void CreateCudaSurf();
@@ -523,7 +523,7 @@ void CreateCudaSurf() {
 ////////////////////////////////////////////////////////////////////////////////
 //! Draw the final result on the screen
 ////////////////////////////////////////////////////////////////////////////////
-bool DrawScene(uint64_t& key)
+bool DrawScene()
 {
 
     HRESULT hr = S_OK;
@@ -627,12 +627,10 @@ void UpdatePan()
 
 //-----------------------------------------------------------------------------
 // Name: Render()
-// Desc: Launches the CUDA kernels to fill in the vertex buffer
+// Desc: Launches the CUDA kernels to fill the surface object <=> UAV texture2D
 //-----------------------------------------------------------------------------
 void Render()
 {
-    static uint64_t key = 0;
-
     checkCudaErrors(cudaGraphicsMapResources(1, &cudaRes, cuda_stream));
 
     // Launch cuda kernel to generate sinewave in vertex buffer
@@ -644,7 +642,7 @@ void Render()
     checkCudaErrors(cudaGraphicsUnmapResources(1, &cudaRes, cuda_stream));
 
     // Draw the scene using them
-    DrawScene(key);
+    DrawScene();
 }
 
 //-----------------------------------------------------------------------------
