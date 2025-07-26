@@ -30,16 +30,12 @@
   */
 
 /*
-그래픽스 인터롭 사용중이므로
-Keyed Mutexes 사용하지않고있습니다. (관련 모두 삭제함)
-
-또한 Cuda Compute로 텍스쳐를 완성 후 해당 텍스쳐를 바로 Backbuffer에 덮어쓰는중입니다.
-
-사용하지 않는 것들
-- Vertex 
-- VertexBuffer
-- InputLayout
-- ClearRTV
+특징: 
+1. 그래픽스 인터롭 사용중이므로 Keyed Mutexes 사용하지않음
+2. CUDA Compute로 (CUDA surface <=> D3D11 UAV Texture) 렌더 후 곧바로 Backbuffer에 복사하므로,
+    D3D11 렌더링 파이프라인을 거치지 않음. (bypass)
+    따라서 IA, VS, RS, PS 세팅하는 과정이 모두 필요없음.
+    단 Swapchian, Viewport, Backbuffer 등 기본적인 것은 필요.
 */
 
 #pragma warning(disable : 4312)
@@ -96,27 +92,6 @@ ID3D11Texture2D* myTex = nullptr;
 ID3D11UnorderedAccessView* myUAV = nullptr;
 cudaGraphicsResource* cudaRes = nullptr;
 cudaSurfaceObject_t dstSurfMipMap0;
-
-//
-// Vertex and Pixel shaders here : VSMain() & PSMain()
-//
-static const char g_simpleShaders[] = "struct PSInput\n"
-"{ \n"
-"    float4 position : SV_POSITION;\n"
-"    float4 color : COLOR; \n"
-"};\n"
-"PSInput VSMain(float3 position : POSITION, float4 color : COLOR)\n"
-"{ \n"
-"    PSInput result;\n"
-"    result.position = float4(position, 1.0f); \n"
-"    // Pass the color through without modification. \n"
-"    result.color = color; \n"
-"    return result; \n"
-"} \n"
-"float4 PSMain(PSInput input) : SV_TARGET \n"
-"{ \n"
-"    return input.color; \n"
-"} \n";
 
 // testing/tracing function used pervasively in tests.  if the condition is unsatisfied
 // then spew and fail the function immediately (doing no cleanup)
@@ -479,76 +454,6 @@ HRESULT InitD3D(HWND hWnd)
     vp.TopLeftY = 0;
     g_pd3dDeviceContext->RSSetViewports(1, &vp);
 
-
-    ID3DBlob* VS;
-    ID3DBlob* PS;
-    ID3DBlob* pErrorMsgs;
-    // Vertex shader
-    {
-        hr = D3DCompile(g_simpleShaders,
-            strlen(g_simpleShaders),
-            "Memory",
-            NULL,
-            NULL,
-            "VSMain",
-            "vs_5_0",
-            0 /*Flags1*/,
-            0 /*Flags2*/,
-            &VS,
-            &pErrorMsgs);
-
-        if (FAILED(hr)) {
-            const char* pStr = (const char*)pErrorMsgs->GetBufferPointer();
-            printf(pStr);
-        }
-
-        AssertOrQuit(SUCCEEDED(hr));
-        hr = g_pd3dDevice->CreateVertexShader(VS->GetBufferPointer(), VS->GetBufferSize(), NULL, &g_pVertexShader);
-        AssertOrQuit(SUCCEEDED(hr));
-        // Let's bind it now : no other vtx shader will replace it...
-        g_pd3dDeviceContext->VSSetShader(g_pVertexShader, NULL, 0);
-    }
-    // Pixel shader
-    {
-        hr = D3DCompile(g_simpleShaders,
-            strlen(g_simpleShaders),
-            "Memory",
-            NULL,
-            NULL,
-            "PSMain",
-            "ps_5_0",
-            0 /*Flags1*/,
-            0 /*Flags2*/,
-            &PS,
-            &pErrorMsgs);
-
-        AssertOrQuit(SUCCEEDED(hr));
-        hr = g_pd3dDevice->CreatePixelShader(PS->GetBufferPointer(), PS->GetBufferSize(), NULL, &g_pPixelShader);
-        AssertOrQuit(SUCCEEDED(hr));
-        // Let's bind it now : no other pix shader will replace it...
-        g_pd3dDeviceContext->PSSetShader(g_pPixelShader, NULL, 0);
-    }
-
-    g_pd3dDeviceContext->IASetInputLayout(nullptr);
-    AssertOrQuit(SUCCEEDED(hr));
-    g_pd3dDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_POINTLIST);
-    AssertOrQuit(SUCCEEDED(hr));
-
-    D3D11_RASTERIZER_DESC rasterizerState;
-    rasterizerState.FillMode = D3D11_FILL_SOLID;
-    rasterizerState.CullMode = D3D11_CULL_FRONT;
-    rasterizerState.FrontCounterClockwise = false;
-    rasterizerState.DepthBias = false;
-    rasterizerState.DepthBiasClamp = 0;
-    rasterizerState.SlopeScaledDepthBias = 0;
-    rasterizerState.DepthClipEnable = false;
-    rasterizerState.ScissorEnable = false;
-    rasterizerState.MultisampleEnable = false;
-    rasterizerState.AntialiasedLineEnable = false;
-    g_pd3dDevice->CreateRasterizerState(&rasterizerState, &g_pRasterState);
-    g_pd3dDeviceContext->RSSetState(g_pRasterState);
-
-
     // 1) 텍스처 생성
     D3D11_TEXTURE2D_DESC texDesc = {};
     texDesc.Width = g_WindowWidth;                          // 화면/버퍼 가로 크기
@@ -562,7 +467,7 @@ HRESULT InitD3D(HWND hWnd)
     texDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS    // CUDA surf 읽기/쓰기
         | D3D11_BIND_SHADER_RESOURCE;   // (선택) HLSL 샘플링
     texDesc.CPUAccessFlags = 0;
-    // --- 외부 메모리 Import(API2)를 쓸 거면 아래를 추가하세요:
+    // --- 외부 메모리 Import(API2)를 쓸 거면 아래 추가:
     // texDesc.MiscFlags        = D3D11_RESOURCE_MISC_SHARED     // 공유 핸들
     //                          | D3D11_RESOURCE_MISC_SHARED_KEYEDMUTEX;
 

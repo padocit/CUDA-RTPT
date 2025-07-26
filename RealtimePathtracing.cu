@@ -2,7 +2,6 @@
 
 #include "helper_math.h" // copied from cuda_sample
 #include "helper_cuda.h"
-#include "Vertex.h"
 
 #include <cuda_surface_types.h>
 #include <cuda_runtime.h>
