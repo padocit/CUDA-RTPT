@@ -2,7 +2,7 @@
 CUDA RealTime-PathTracer
 
 ---
-Now using D3D11, but planning to use DX12.
+Now using D3D11
 
 * LMOUSE: Camera rotation
 * RMOUSE: Camera pan
