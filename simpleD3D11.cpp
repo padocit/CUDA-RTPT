@@ -75,17 +75,6 @@ ID3D11Device* g_pd3dDevice = NULL; // Our rendering device
 ID3D11DeviceContext* g_pd3dDeviceContext = NULL;
 IDXGISwapChain* g_pSwapChain = NULL; // The swap chain of the window
 ID3D11RenderTargetView* g_pSwapChainRTV = NULL; // The Render target view on the swap chain ( used for clear)
-ID3D11RasterizerState* g_pRasterState = NULL;
-ID3D11InputLayout* g_pInputLayout = NULL;
-ID3D11VertexShader* g_pVertexShader;
-ID3D11PixelShader* g_pPixelShader;
-ID3D11InputLayout* g_pLayout;
-ID3D11Buffer* g_VertexBuffer;
-IDXGIKeyedMutex* g_pKeyedMutex11;
-
-//Vertex* d_VertexBufPtr = NULL;
-cudaExternalMemory_t    extMemory;
-cudaExternalSemaphore_t extSemaphore;
 
 // Cuda Surf
 ID3D11Texture2D* myTex = nullptr;
@@ -561,28 +550,9 @@ bool DrawScene(uint64_t& key)
 //-----------------------------------------------------------------------------
 void Cleanup()
 {
-    //checkCudaErrors(cudaFree(d_VertexBufPtr));
-    checkCudaErrors(cudaDestroyExternalMemory(extMemory));
-    checkCudaErrors(cudaDestroyExternalSemaphore(extSemaphore));
     //
     // clean up Direct3D
     //
-    // release the resources we created
-    if (g_pInputLayout != NULL) {
-        g_pInputLayout->Release();
-    }
-
-    if (g_pVertexShader) {
-        g_pVertexShader->Release();
-    }
-
-    if (g_pPixelShader) {
-        g_pPixelShader->Release();
-    }
-
-    if (g_VertexBuffer) {
-        g_VertexBuffer->Release();
-    }
 
     if (g_pSwapChainRTV != NULL) {
         g_pSwapChainRTV->Release();
